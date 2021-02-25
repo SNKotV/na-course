@@ -9,8 +9,10 @@ double newton_interpolation(std::vector<std::pair<double, double>> &key_value_ta
 double gauss_interpolation(std::vector<std::pair<double, double>> &key_value_table, double x);
 
 std::vector<std::vector<double>> compute_divided_differences_table(std::vector<std::pair<double, double>> &key_value_table);
+double f(double x);
 
 std::vector<double> factorials;
+
 
 int main(int argc, char** argv) {
 #ifdef _DEBUG
@@ -34,7 +36,7 @@ int main(int argc, char** argv) {
 
 #ifdef _DEBUG
 	key_value_table.resize(n);
-	for (auto &p : key_value_table) {
+	for (auto& p : key_value_table) {
 		std::cin >> p.first >> p.second;
 	}
 #else
@@ -45,7 +47,7 @@ int main(int argc, char** argv) {
 	}
 	fin >> n;
 	key_value_table.resize(n);
-	for (auto &p : key_value_table) {
+	for (auto& p : key_value_table) {
 		fin >> p.first >> p.second;
 	}
 #endif
@@ -78,6 +80,27 @@ int main(int argc, char** argv) {
 	std::cout << "Newton interpolation: f(" << x << ") = " << newton_interpolation(key_value_table, x) << '\n';
 	std::cout << "Gauss interpolation: f(" << x << ") = " << gauss_interpolation(key_value_table, x) << '\n';
 
+	std::cout << "\nComputing divided differences for 3x^6 - 2x^4 + 7x^3 - 4x + 1\n\n";
+
+	n = 11;
+	key_value_table.resize(n);
+	x = 0;
+	for (int i = 0; i < n; i++) {
+		key_value_table[i] = { x, f(x) };
+		x += 0.1;
+	}
+	std::vector<std::vector<double>> divided_diff_table = compute_divided_differences_table(key_value_table);
+	for (int i = 0; i < n; i++) {
+		std::cout << std::setw(6) << i << ' ';
+	}
+	std::cout << '\n';
+	for (auto& row : divided_diff_table) {
+		for (auto& y : row) {
+			std::cout << std::setw(6) << y << ' ';
+		}
+		std::cout << '\n';
+	}
+
 #ifndef _DEBUG
 	std::cin.get();
 	std::cin.get();
@@ -91,18 +114,35 @@ double newton_interpolation(std::vector<std::pair<double, double>> &key_value_ta
 	std::vector<std::vector<double>> divided_diff_table = compute_divided_differences_table(key_value_table);
 
 	int m = n / 2;
-	double res = divided_diff_table[m][0];
+	double res;
 	double h = key_value_table[1].first - key_value_table[0].first;
-	double t = (x - key_value_table[0].first) / h;
-
+	
 	if (std::fabs(x - key_value_table[m].first) < 1e-12) {
 		return key_value_table[m].second;
 	}
 	else if (x > key_value_table[m].first) {
-		
+		res = divided_diff_table[n - 1][0];
+		double t = (x - key_value_table[n - 1].first) / h;
+
+		for (int i = 1; i < n; i++) {
+			double multiplier = t;
+			for (int j = 1; j < i; j++) {
+				multiplier *= t + j;
+			}
+			res += multiplier * divided_diff_table[n - i - 1][i] / factorials[i];
+		}
 	}
 	else {
-		
+		res = divided_diff_table[0][0];
+		double t = (x - key_value_table[0].first) / h;
+
+		for (int i = 1; i < n; i++) {
+			double multiplier = t;
+			for (int j = 1; j < i; j++) {
+				multiplier *= t - j;
+			}
+			res += multiplier * divided_diff_table[0][i] / factorials[i];
+		}
 	}
 
 	return res;
@@ -112,16 +152,53 @@ double gauss_interpolation(std::vector<std::pair<double, double>> &key_value_tab
 	int n = key_value_table.size();
 	std::vector<std::vector<double>> divided_diff_table = compute_divided_differences_table(key_value_table);
 
-	double res = divided_diff_table[0][0];
+	int m = n / 2;
+	double res = divided_diff_table[m][0];
 	double h = key_value_table[1].first - key_value_table[0].first;
-	double t = (x - key_value_table[0].first) / h;
+	double t = (x - key_value_table[m].first) / h;
 
-	for (int i = 1; i < n; i++) {
-		double multiplier = t;
-		for (int j = 1; j < i; j++) {
-			multiplier *= t - j;
+	if (std::fabs(x - key_value_table[m].first) < 1e-12) {
+		return key_value_table[m].second;
+	}
+	else if (x > key_value_table[m].first) {
+		for (int i = 1; i < n - 1; i++) {
+			double multiplier = t;
+			int k = 1;
+			for (int j = 1; j < i; j++) {
+				if (j % 2 != 0) {
+					multiplier *= t - k;
+				}
+				else {
+					multiplier *= t + k;
+					k++;
+				}
+			}
+			res += multiplier * divided_diff_table[m][i] / factorials[i];
+			if (i % 2 != 0) {
+				m--;
+			}
 		}
-		res += multiplier * divided_diff_table[0][i] / factorials[i];
+	}
+	else {
+		m--;
+
+		for (int i = 1; i < n - 1; i++) {
+			double multiplier = t;
+			int k = 1;
+			for (int j = 1; j < i; j++) {
+				if (j % 2 == 0) {
+					multiplier *= t - k;
+					k++;
+				}
+				else {
+					multiplier *= t + k;
+				}
+			}
+			res += multiplier * divided_diff_table[m][i] / factorials[i];
+			if (i % 2 == 0) {
+				m--;
+			}
+		}
 	}
 
 	return res;
@@ -141,4 +218,8 @@ std::vector<std::vector<double>> compute_divided_differences_table(std::vector<s
 	}
 
 	return divided_diff_table;
+}
+
+double f(double x) {
+	return 3 * x * x * x * x * x * x - 2 * x * x * x * x + 7 * x * x * x - 4 * x + 1;
 }
